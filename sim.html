@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="uk" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT & OAuth 2.0 QA Simulator v2.6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        jwtHeader: '#ef4444',
+                        jwtPayload: '#a855f7',
+                        jwtSignature: '#06b6d4'
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 1);
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(34, 197, 94, 0.6); }
+        }
+        .glow-active {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-xl text-emerald-400">
+                    <i class="fa-solid me-0 fa-key text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide text-white flex items-center gap-2">
+                        JWT & OAuth 2.0 QA Simulator
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">v1.0 QA </span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Інтелектуальне середовище для тестування авторизації та токенів</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <div id="status-badge" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="status-text">ТОКЕН ДІЙСНИЙ</span>
+                </div>
+
+                <div class="bg-slate-800 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-300 font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield text-slate-400"></i>
+                    Роль: <span id="current-role-display" class="font-bold text-amber-400">USER</span>
+                </div>
+
+                <button onclick="resetSimulator()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" title="Скинути стан симулятора">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Скинути</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- LEFT COLUMN: QA Action Test Cases Panel -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-vial-circle-check text-emerald-400"></i>
+                        Панель Тест-Кейсів (14 Дій)
+                    </h2>
+                    <span class="text-xs text-slate-500">Клацайте для запуску</span>
+                </div>
+
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 mb-3 flex items-center justify-between">
+                    <span class="text-xs text-slate-400 font-medium">Перемикач ролі сеансу:</span>
+                    <div class="flex items-center bg-slate-900 p-0.5 rounded-md border border-slate-700">
+                        <button id="role-user-btn" onclick="setRole('USER')" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 text-white transition">USER</button>
+                        <button id="role-admin-btn" onclick="setRole('ADMIN')" class="px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white transition">ADMIN</button>
+                    </div>
+                </div>
+
+                <!-- Actions List -->
+                <div class="space-y-2 max-h-[580px] overflow-y-auto pr-1">
+                    
+                    <button onclick="actionLogin()" class="w-full text-left p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">1</span>
+                            <span>Вхід (POST /auth/login)</span>
+                        </span>
+                        <i class="fa-solid fa-right-to-bracket text-emerald-400 group-hover:translate-x-0.5 transition"></i>
+                    </button>
+
+                    <button onclick="actionGetProfile()" class="w-full text-left p-2.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800/80 text-slate-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">2</span>
+                            <span>Профіль (GET /user/profile)</span>
+                        </span>
+                        <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">200 OK</span>
+                    </button>
+
+                    <button onclick="actionGetAdmin()" class="w-full text-left p-2.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800/80 text-slate-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">3</span>
+                            <span>Адмінка (GET /admin/dashboard)</span>
+                        </span>
+                        <span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">403/200</span>
+                    </button>
+
+                    <button onclick="actionFastForward()" class="w-full text-left p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px]">4</span>
+                            <span>Пропустити час (+15 сек)</span>
+                        </span>
+                        <i class="fa-solid fa-forward-step text-amber-400"></i>
+                    </button>
+
+                    <button onclick="actionExpiredRequest()" class="w-full text-left p-2.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800/80 text-slate-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">5</span>
+                            <span>Запит з протермінованим токеном</span>
+                        </span>
+                        <span class="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded">401 Expired</span>
+                    </button>
+
+                    <button onclick="actionRefreshToken()" class="w-full text-left p-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 hover:bg-sky-500/10 text-sky-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-[10px]">6</span>
+                            <span>Оновити токен (POST /auth/refresh)</span>
+                        </span>
+                        <i class="fa-solid fa-arrows-rotate text-sky-400"></i>
+                    </button>
+
+                    <button onclick="actionTamperToken()" class="w-full text-left p-2.5 rounded-lg border border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 text-purple-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-[10px]">7</span>
+                            <span>Підробити токен (Tamper Attack)</span>
+                        </span>
+                        <i class="fa-solid fa-user-ninja text-purple-400"></i>
+                    </button>
+
+                    <button onclick="actionAlgNone()" class="w-full text-left p-2.5 rounded-lg border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 text-orange-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-[10px]">8</span>
+                            <span>Атака alg: none</span>
+                        </span>
+                        <span class="text-[10px] bg-orange-500/10 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded">400 Bad Request</span>
+                    </button>
+
+                    <button onclick="actionMissingToken()" class="w-full text-left p-2.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800/80 text-slate-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">9</span>
+                            <span>Запит без токена Header</span>
+                        </span>
+                        <span class="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded">401 No Auth</span>
+                    </button>
+
+                    <button onclick="actionRevokeToken()" class="w-full text-left p-2.5 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-[10px]">10</span>
+                            <span>Відкликати токен + перевірити</span>
+                        </span>
+                        <i class="fa-solid fa-ban text-red-400"></i>
+                    </button>
+
+                    <button onclick="actionLogout()" class="w-full text-left p-2.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-slate-700 text-slate-300 flex items-center justify-center font-bold text-[10px]">11</span>
+                            <span>Вихід з системи (POST /auth/logout)</span>
+                        </span>
+                        <i class="fa-solid fa-right-from-bracket text-slate-400"></i>
+                    </button>
+
+                    <!-- NEW 3 ADVANCED QA ACTIONS -->
+                    <button onclick="actionMalformedToken()" class="w-full text-left p-2.5 rounded-lg border border-pink-500/30 bg-pink-500/5 hover:bg-pink-500/10 text-pink-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-pink-500/20 text-pink-400 flex items-center justify-center font-bold text-[10px]">12</span>
+                            <span>Битий токен (Malformed Token)</span>
+                        </span>
+                        <span class="text-[10px] bg-pink-500/10 text-pink-400 border border-pink-500/20 px-1.5 py-0.5 rounded">401 Malformed</span>
+                    </button>
+
+                    <button onclick="actionReuseRefreshToken()" class="w-full text-left p-2.5 rounded-lg border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px]">13</span>
+                            <span>Повтор Refresh (Reuse Attack)</span>
+                        </span>
+                        <span class="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded">401 Token Reuse</span>
+                    </button>
+
+                    <button onclick="actionAudienceMismatch()" class="w-full text-left p-2.5 rounded-lg border border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10 text-teal-300 font-medium text-xs flex items-center justify-between transition group">
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-[10px]">14</span>
+                            <span>Невідповідність Audience (aud)</span>
+                        </span>
+                        <span class="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded">403 Mismatch</span>
+                    </button>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT / CENTER COLUMN: Canvas Flow & JWT Inspector & DevTools -->
+        <section class="lg:col-span-8 flex flex-col gap-4">
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-network-wired text-sky-400"></i>
+                        Анімація Мережевого Потоку (Topology Canvas)
+                    </h2>
+                    <span id="canvas-status" class="text-xs text-slate-400 italic">Готовий до запиту...</span>
+                </div>
+                <div class="relative w-full bg-slate-950 rounded-lg border border-slate-800 overflow-hidden" style="height: 180px;">
+                    <canvas id="network-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between mb-3 border-b border-slate-800 pb-2 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-code text-purple-400"></i>
+                            Живий Інспектор Токена (JWT Inspector)
+                        </h2>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="text-xs text-slate-400">
+                            TTL: <span id="jwt-ttl-seconds" class="font-bold text-emerald-400 font-mono">15s</span>
+                        </div>
+                        <div class="w-28 bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+                            <div id="jwt-ttl-bar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    
+                    <div class="bg-slate-950 p-3 rounded-lg border border-red-500/30 relative">
+                        <div class="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-1 flex justify-between">
+                            <span>1. Header (Заголовок)</span>
+                            <span class="text-[9px] bg-red-500/10 px-1 rounded">Algorithm</span>
+                        </div>
+                        <pre id="jwt-header-json" class="text-xs font-mono-code text-red-300 overflow-x-auto">
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}</pre>
+                    </div>
+
+                    <div class="bg-slate-950 p-3 rounded-lg border border-purple-500/30 relative">
+                        <div class="text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-1 flex justify-between">
+                            <span>2. Payload (Дані)</span>
+                            <span class="text-[9px] bg-purple-500/10 px-1 rounded">Claims</span>
+                        </div>
+                        <pre id="jwt-payload-json" class="text-xs font-mono-code text-purple-300 overflow-x-auto max-h-28">
+{
+  "sub": "usr_98123",
+  "name": "Олексій QA",
+  "role": "USER",
+  "iat": 1711200000,
+  "exp": 1711200015
+}</pre>
+                    </div>
+
+                    <div class="bg-slate-950 p-3 rounded-lg border border-cyan-500/30 relative">
+                        <div class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-1 flex justify-between">
+                            <span>3. Signature (Підпис)</span>
+                            <span class="text-[9px] bg-cyan-500/10 px-1 rounded">HMACSHA256</span>
+                        </div>
+                        <p id="jwt-signature-text" class="text-xs font-mono-code text-cyan-300 break-all leading-relaxed">
+                            HMACSHA256(
+                            base64UrlEncode(header) + "." +
+                            base64UrlEncode(payload),
+                            <span class="text-amber-400 font-bold">secret_key</span>)
+                        </p>
+                    </div>
+
+                </div>
+
+                <div class="mt-3 bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between gap-2">
+                    <div class="overflow-x-auto font-mono-code text-xs whitespace-nowrap tracking-wide py-0.5" id="jwt-raw-colored">
+                        <span class="text-red-400">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span>.<span class="text-purple-400">eyJzdWIiOiJ1c3JfOTgxMjMiLCJyb2xlIjoiVVNFUiJ9</span>.<span class="text-cyan-400">dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk</span>
+                    </div>
+                    <button onclick="copyRawToken()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition shrink-0" title="Копіювати токен">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between mb-3 border-b border-slate-800 pb-2 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-emerald-400"></i>
+                            DevTools Network Console (Лог запитів)
+                        </h2>
+                        <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full" id="log-count">0 запитів</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="clearNetworkLogs()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition">
+                            <i class="fa-solid fa-trash-can mr-1"></i> Очистити
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-lg border border-slate-800 max-h-60 overflow-y-auto mb-3">
+                    <table class="w-full text-left text-xs text-slate-300 font-mono-code">
+                        <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
+                            <tr>
+                                <th class="p-2">#</th>
+                                <th class="p-2">Метод</th>
+                                <th class="p-2">URL Endpoint</th>
+                                <th class="p-2">Статус Code</th>
+                                <th class="p-2">Час (мс)</th>
+                                <th class="p-2">Розмір</th>
+                                <th class="p-2">Деталі</th>
+                            </tr>
+                        </thead>
+                        <tbody id="network-log-body" class="divide-y divide-slate-800/60 bg-slate-900">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="inspector-panel" class="bg-slate-950 border border-slate-800 rounded-lg p-3 hidden transition-all">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                        <div class="flex items-center gap-3">
+                            <span id="insp-method" class="font-bold text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">POST</span>
+                            <span id="insp-url" class="text-xs text-slate-200 font-mono">/api/v1/auth/login</span>
+                            <span id="insp-status" class="text-xs px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400">200 OK</span>
+                        </div>
+                        <button onclick="closeInspector()" class="text-slate-400 hover:text-white text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex border-b border-slate-800 mb-3 text-xs gap-4">
+                        <button onclick="switchTab('headers')" id="tab-headers" class="pb-1 text-emerald-400 font-bold border-b-2 border-emerald-400">Headers</button>
+                        <button onclick="switchTab('payload')" id="tab-payload" class="pb-1 text-slate-400 hover:text-slate-200">Payload / Request</button>
+                        <button onclick="switchTab('response')" id="tab-response" class="pb-1 text-slate-400 hover:text-slate-200">Response JSON</button>
+                        <button onclick="switchTab('qa-explain')" id="tab-qa-explain" class="pb-1 text-slate-400 hover:text-slate-200 text-amber-400">💡 Пояснення QA</button>
+                    </div>
+
+                    <div id="tab-content-headers" class="inspector-tab text-xs font-mono-code space-y-1 text-slate-300">
+                    </div>
+
+                    <div id="tab-content-payload" class="inspector-tab text-xs font-mono-code hidden">
+                        <pre id="insp-payload-text" class="text-slate-300 bg-slate-900 p-2.5 rounded border border-slate-800 overflow-x-auto"></pre>
+                    </div>
+
+                    <div id="tab-content-response" class="inspector-tab text-xs font-mono-code hidden">
+                        <pre id="insp-response-text" class="text-slate-300 bg-slate-900 p-2.5 rounded border border-slate-800 overflow-x-auto max-h-40"></pre>
+                    </div>
+
+                    <div id="tab-content-qa-explain" class="inspector-tab text-xs hidden leading-relaxed space-y-2">
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <section class="max-w-7xl w-full mx-auto p-4 pt-0 grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+        
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        QA Junior Mentor: Що потрібно знати?
+                    </h3>
+                </div>
+                <div id="qa-mentor-card" class="text-xs text-slate-300 space-y-2">
+                    <p class="text-slate-400">Оберіть будь-який тест-кейс або клацніть на лог у DevTools Network Console, щоб побачити аналіз під капотом.</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500">
+                <span>Порада: Токени повинні зберігатися в Secure HttpOnly Cookie або App Memory.</span>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                <h3 class="text-sm font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    QA Чеклист Тестування JWT
+                </h3>
+                <button onclick="openQuizModal()" class="text-xs bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-1 rounded hover:bg-sky-500/30 transition">
+                    <i class="fa-solid fa-question-circle mr-1"></i> Пройти Квіз
+                </button>
+            </div>
+
+            <ul class="space-y-2 text-xs text-slate-300">
+                <li class="flex items-start gap-2">
+                    <input type="checkbox" id="chk-1" class="mt-0.5 accent-emerald-500">
+                    <label for="chk-1">Перевірка відповіді 401 Unauthorized при відсутності заголовока <code>Authorization: Bearer</code>.</label>
+                </li>
+                <li class="flex items-start gap-2">
+                    <input type="checkbox" id="chk-2" class="mt-0.5 accent-emerald-500">
+                    <label for="chk-2">Перевірка реакції бекенду на зміну підпису (Tampering / Signature Mismatch).</label>
+                </li>
+                <li class="flex items-start gap-2">
+                    <input type="checkbox" id="chk-3" class="mt-0.5 accent-emerald-500">
+                    <label for="chk-3">Перевірка валідації терміну життя (Expiration Claim <code>exp</code>).</label>
+                </li>
+                <li class="flex items-start gap-2">
+                    <input type="checkbox" id="chk-4" class="mt-0.5 accent-emerald-500">
+                    <label for="chk-4">Перевірка відкликання (Revoke/Blacklist) при Виході або Зміні Пароля.</label>
+                </li>
+                <li class="flex items-start gap-2">
+                    <input type="checkbox" id="chk-5" class="mt-0.5 accent-emerald-500">
+                    <label for="chk-5">Перевірка рольової моделі (RBAC): 403 Forbidden для некоректної ролі.</label>
+                </li>
+            </ul>
+        </div>
+
+    </section>
+
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl relative">
+            <button onclick="closeQuizModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-brain text-sky-400"></i>
+                Перевірка Знань QA: JWT & OAuth 2.0
+            </h3>
+            
+            <div id="quiz-body" class="space-y-4 text-xs text-slate-300">
+            </div>
+
+            <div class="mt-5 flex justify-end gap-2 border-t border-slate-800 pt-3">
+                <button onclick="closeQuizModal()" class="px-3 py-1.5 rounded text-xs bg-slate-800 text-slate-300 hover:bg-slate-700">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            role: 'USER', 
+            token: null,
+            refreshToken: null,
+            jti: null,
+            status: 'VALID', // 'VALID' | 'EXPIRED' | 'TAMPERED' | 'ALG_NONE' | 'REVOKED' | 'MISSING' | 'MALFORMED'
+            iat: 0,
+            exp: 0,
+            ttl: 15, 
+            redisBlacklist: new Set(),
+            logs: [],
+            activeLogId: null,
+            timerInterval: null
+        };
+
+        const canvasNodes = {
+            client: { x: 80, y: 90, label: 'Браузер (Client)', color: '#06b6d4' },
+            gateway: { x: 260, y: 90, label: 'API Gateway', color: '#a855f7' },
+            authServer: { x: 450, y: 45, label: 'Auth Server', color: '#22c55e' },
+            redis: { x: 450, y: 135, label: 'Redis Blacklist', color: '#ef4444' }
+        };
+
+        let activeAnimationPacket = null;
+
+        window.onload = function() {
+            initCanvas();
+            startTTLTick();
+            actionLogin();
+        };
+
+        function base64UrlEncodeUtf8(value) {
+            return btoa(unescape(encodeURIComponent(value)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        function base64UrlDecodeUtf8(value) {
+            const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4);
+            return decodeURIComponent(escape(atob(padded)));
+        }
+
+        function createToken(role = state.role, customTtl = 15) {
+            const now = Math.floor(Date.now() / 1000);
+            state.iat = now;
+            state.exp = now + customTtl;
+            state.jti = 'jti_' + Math.random().toString(36).substr(2, 9);
+            state.status = 'VALID';
+
+            const header = { alg: "HS256", typ: "JWT" };
+            const payload = {
+                sub: "usr_qa_981",
+                name: "Олексій QA",
+                role: role,
+                aud: "web_portal_app",
+                iss: "https://auth.myservice.internal",
+                jti: state.jti,
+                iat: state.iat,
+                exp: state.exp
+            };
+
+            const headerB64 = base64UrlEncodeUtf8(JSON.stringify(header));
+            const payloadB64 = base64UrlEncodeUtf8(JSON.stringify(payload));
+            const sigMock = "Sig_" + Math.random().toString(36).substr(2, 16);
+
+            state.token = `${headerB64}.${payloadB64}.${sigMock}`;
+            state.refreshToken = "rt_mock_" + Math.random().toString(36).substr(2, 24);
+
+            updateInspectorUI();
+        }
+
+        function startTTLTick() {
+            if (state.timerInterval) clearInterval(state.timerInterval);
+            
+            state.timerInterval = setInterval(() => {
+                const now = Math.floor(Date.now() / 1000);
+                const remaining = state.exp - now;
+
+                const ttlElem = document.getElementById('jwt-ttl-seconds');
+                const barElem = document.getElementById('jwt-ttl-bar');
+
+                if (state.status === 'MISSING' || state.status === 'MALFORMED') {
+                    ttlElem.innerText = '0s';
+                    barElem.style.width = '0%';
+                    updateBadge(state.status === 'MALFORMED' ? 'БИТИЙ ТОКЕН' : 'ВІДСУТНІЙ', 'bg-slate-500/20 text-slate-400 border-slate-500/30');
+                    return;
+                }
+
+                if (state.status === 'TAMPERED') {
+                    ttlElem.innerText = '0s';
+                    barElem.style.width = '0%';
+                    updateBadge('СКОМПРОМЕТОВАНО', 'bg-purple-500/20 text-purple-400 border-purple-500/30');
+                    return;
+                }
+
+                if (state.status === 'ALG_NONE') {
+                    ttlElem.innerText = '0s';
+                    barElem.style.width = '0%';
+                    updateBadge('ALG: NONE', 'bg-orange-500/20 text-orange-400 border-orange-500/30');
+                    return;
+                }
+
+                if (state.status === 'REVOKED') {
+                    ttlElem.innerText = '0s';
+                    barElem.style.width = '0%';
+                    updateBadge('ВІДКЛИКАНО', 'bg-red-500/20 text-red-400 border-red-500/30');
+                    return;
+                }
+
+                if (remaining <= 0) {
+                    state.status = 'EXPIRED';
+                    ttlElem.innerText = '0s';
+                    barElem.style.width = '0%';
+                    updateBadge('ПРОТЕРМІНОВАНО', 'bg-rose-500/20 text-rose-400 border-rose-500/30');
+                } else {
+                    if (state.status === 'VALID') {
+                        ttlElem.innerText = `${remaining}s`;
+                        const pct = Math.max(0, (remaining / 15) * 100);
+                        barElem.style.width = `${pct}%`;
+                        updateBadge('ТОКЕН ДІЙСНИЙ', 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30');
+                    }
+                }
+            }, 500);
+        }
+
+        function updateBadge(text, classes) {
+            const badge = document.getElementById('status-badge');
+            const txt = document.getElementById('status-text');
+            badge.className = `px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 border ${classes}`;
+            txt.innerText = text;
+        }
+
+        function updateInspectorUI() {
+            if (!state.token || state.status === 'MISSING') {
+                document.getElementById('jwt-header-json').innerText = '{\n  "status": "No token"\n}';
+                document.getElementById('jwt-payload-json').innerText = '{\n  "status": "No token"\n}';
+                document.getElementById('jwt-signature-text').innerText = 'Відсутній';
+                document.getElementById('jwt-raw-colored').innerHTML = '<span class="text-slate-500">Authorization header not present</span>';
+                return;
+            }
+
+            if (state.status === 'MALFORMED') {
+                document.getElementById('jwt-header-json').innerText = '{\n  "error": "Cannot parse header"\n}';
+                document.getElementById('jwt-payload-json').innerText = '{\n  "error": "Invalid Base64 segments"\n}';
+                document.getElementById('jwt-signature-text').innerText = 'Invalid_Format';
+                document.getElementById('jwt-raw-colored').innerHTML = `<span class="text-pink-400">${state.token}</span>`;
+                return;
+            }
+
+            const parts = state.token.split('.');
+            try {
+                const headerObj = JSON.parse(base64UrlDecodeUtf8(parts[0]));
+                const payloadObj = JSON.parse(base64UrlDecodeUtf8(parts[1]));
+
+                document.getElementById('jwt-header-json').innerText = JSON.stringify(headerObj, null, 2);
+                document.getElementById('jwt-payload-json').innerText = JSON.stringify(payloadObj, null, 2);
+                document.getElementById('jwt-signature-text').innerText = parts[2] || 'Invalid_Signature';
+
+                document.getElementById('jwt-raw-colored').innerHTML = `
+                    <span class="text-red-400">${parts[0]}</span>.<span class="text-purple-400">${parts[1]}</span>.<span class="text-cyan-400">${parts[2] || ''}</span>
+                `;
+            } catch (e) {
+                document.getElementById('jwt-raw-colored').innerText = state.token;
+            }
+        }
+
+        function setRole(newRole) {
+            state.role = newRole;
+            document.getElementById('current-role-display').innerText = newRole;
+            
+            const uBtn = document.getElementById('role-user-btn');
+            const aBtn = document.getElementById('role-admin-btn');
+
+            if (newRole === 'USER') {
+                uBtn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 text-white transition";
+                aBtn.className = "px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white transition";
+            } else {
+                aBtn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-amber-600 text-white transition";
+                uBtn.className = "px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white transition";
+            }
+
+            if (state.token && state.status === 'VALID') {
+                createToken(newRole);
+            }
+        }
+
+        function logNetworkRequest({ method, url, status, statusText, reqHeaders, reqBody, resHeaders, resBody, qaExplanation, targetNode = 'gateway' }) {
+            const timeMs = Math.floor(Math.random() * 25) + 12;
+            const size = (JSON.stringify(resBody || {}).length + 180) + ' B';
+
+            const logEntry = {
+                id: state.logs.length + 1,
+                method,
+                url,
+                status,
+                statusText,
+                timeMs,
+                size,
+                reqHeaders,
+                reqBody,
+                resHeaders,
+                resBody,
+                qaExplanation,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            state.logs.unshift(logEntry);
+            renderNetworkLogs();
+            selectInspectorLog(logEntry.id);
+            animatePacket(targetNode, status === 200 ? '#22c55e' : (status === 403 ? '#f59e0b' : '#ef4444'));
+            updateQAMentorCard(qaExplanation);
+        }
+
+        function renderNetworkLogs() {
+            const tbody = document.getElementById('network-log-body');
+            document.getElementById('log-count').innerText = `${state.logs.length} запитів`;
+
+            tbody.innerHTML = state.logs.map(log => {
+                let statusBadgeClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                if (log.status === 401) statusBadgeClass = "bg-rose-500/20 text-rose-400 border-rose-500/30";
+                if (log.status === 403) statusBadgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+
+                const isSelected = state.activeLogId === log.id ? "bg-slate-800/90" : "hover:bg-slate-800/40";
+
+                return `
+                    <tr onclick="selectInspectorLog(${log.id})" class="cursor-pointer transition ${isSelected}">
+                        <td class="p-2 text-slate-500">${log.id}</td>
+                        <td class="p-2 font-bold ${log.method === 'POST' ? 'text-sky-400' : 'text-purple-400'}">${log.method}</td>
+                        <td class="p-2 text-slate-200">${log.url}</td>
+                        <td class="p-2">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${statusBadgeClass}">
+                                ${log.status} ${log.statusText}
+                            </span>
+                        </td>
+                        <td class="p-2 text-slate-400">${log.timeMs}ms</td>
+                        <td class="p-2 text-slate-400">${log.size}</td>
+                        <td class="p-2 text-slate-400 text-center"><i class="fa-solid fa-chevron-right text-[10px]"></i></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function selectInspectorLog(id) {
+            state.activeLogId = id;
+            const log = state.logs.find(l => l.id === id);
+            if (!log) return;
+
+            renderNetworkLogs();
+
+            const panel = document.getElementById('inspector-panel');
+            panel.classList.remove('hidden');
+
+            document.getElementById('insp-method').innerText = log.method;
+            document.getElementById('insp-url').innerText = log.url;
+            
+            const statElem = document.getElementById('insp-status');
+            statElem.innerText = `${log.status} ${log.statusText}`;
+            statElem.className = `text-xs px-2 py-0.5 rounded font-bold ${
+                log.status === 200 ? 'bg-emerald-500/20 text-emerald-400' :
+                log.status === 403 ? 'bg-amber-500/20 text-amber-400' :
+                log.status === 400 ? 'bg-orange-500/20 text-orange-400' :
+                'bg-rose-500/20 text-rose-400'
+            }`;
+
+            const headersDiv = document.getElementById('tab-content-headers');
+            headersDiv.innerHTML = Object.entries(log.reqHeaders).map(([k, v]) => `
+                <div class="flex"><span class="text-slate-400 w-32 shrink-0">${k}:</span> <span class="text-emerald-300 break-all">${v}</span></div>
+            `).join('');
+
+            document.getElementById('insp-payload-text').innerText = log.reqBody ? JSON.stringify(log.reqBody, null, 2) : '// Немає тіла запиту (Empty Payload)';
+            document.getElementById('insp-response-text').innerText = JSON.stringify(log.resBody, null, 2);
+
+            document.getElementById('tab-content-qa-explain').innerHTML = `
+                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                    <p class="font-bold text-amber-400 mb-1">🔍 Що відбулося під капотом?</p>
+                    <p class="text-slate-300">${log.qaExplanation.whatHappened}</p>
+                </div>
+                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                    <p class="font-bold text-sky-400 mb-1">⚡ Пояснення HTTP Статусу ${log.status}:</p>
+                    <p class="text-slate-300">${log.qaExplanation.whyStatus}</p>
+                </div>
+                <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                    <p class="font-bold text-emerald-400 mb-1">🧪 Порада для QA (Postman/cURL):</p>
+                    <p class="text-slate-300 font-mono-code text-[11px]">${log.qaExplanation.postmanTip}</p>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName) {
+            ['headers', 'payload', 'response', 'qa-explain'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`tab-content-${t}`);
+                if (t === tabName) {
+                    btn.className = "pb-1 text-emerald-400 font-bold border-b-2 border-emerald-400";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "pb-1 text-slate-400 hover:text-slate-200";
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function closeInspector() {
+            document.getElementById('inspector-panel').classList.add('hidden');
+        }
+
+        // 1. Login
+        function actionLogin() {
+            createToken(state.role, 15);
+            logNetworkRequest({
+                method: 'POST',
+                url: '/api/v1/auth/login',
+                status: 200,
+                statusText: 'OK',
+                reqHeaders: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (QA Simulator Browser)'
+                },
+                reqBody: { username: "alex_qa", password: "••••••••" },
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: {
+                    access_token: state.token,
+                    refresh_token: state.refreshToken,
+                    token_type: "Bearer",
+                    expires_in: 15
+                },
+                qaExplanation: {
+                    whatHappened: "Клієнт передав логін і пароль. Auth Server підтвердив credentials і згенерував симетрично підписаний JWT access_token з терміном дії 15 сек.",
+                    whyStatus: "200 OK — Авторизація успішна, токен видано клієнту.",
+                    postmanTip: "Перевіряйте наявність access_token та refresh_token у відповіді JSON."
+                },
+                targetNode: 'authServer'
+            });
+        }
+
+        // 2. Profile
+        function actionGetProfile() {
+            if (!state.token || state.status === 'MISSING') {
+                logNetworkRequest({
+                    method: 'GET',
+                    url: '/api/v1/user/profile',
+                    status: 401,
+                    statusText: 'Unauthorized',
+                    reqHeaders: { 'Accept': 'application/json' },
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Unauthorized", message: "Missing Authorization Header" },
+                    qaExplanation: {
+                        whatHappened: "Клієнт зробив запит до захищеного ресурсу без заголовка Authorization.",
+                        whyStatus: "401 Unauthorized — Сервер відхилив запит через відсутність токена.",
+                        postmanTip: "Завжди додавайте заголовок 'Authorization: Bearer <token>' у Postman."
+                    }
+                });
+                return;
+            }
+
+            if (state.status === 'EXPIRED') {
+                actionExpiredRequest();
+                return;
+            }
+
+            if (state.status === 'ALG_NONE') {
+                logNetworkRequest({
+                    method: 'GET',
+                    url: '/api/v1/user/profile',
+                    status: 400,
+                    statusText: 'Bad Request',
+                    reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Unsupported Algorithm", message: "JWT alg 'none' is not allowed" },
+                    qaExplanation: {
+                        whatHappened: "У Header JWT алгоритм змінено на `none`, тобто токен заявляє про відсутність криптографічного підпису.",
+                        whyStatus: "400 Bad Request — бекенд відхиляє небезпечний/непідтримуваний алгоритм до авторизації запиту.",
+                        postmanTip: "Перевірте, що `alg: none` не дозволяє обійти перевірку підпису і що сервер повертає контрольовану помилку без stack trace."
+                    }
+                });
+                return;
+            }
+
+            if (state.status === 'TAMPERED') {
+                logNetworkRequest({
+                    method: 'GET',
+                    url: '/api/v1/user/profile',
+                    status: 401,
+                    statusText: 'Unauthorized',
+                    reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Invalid Signature", message: "JWT signature does not match payload" },
+                    qaExplanation: {
+                        whatHappened: "Клієнт надіслав токен, підпис якого не збігається з секретним ключем сервера.",
+                        whyStatus: "401 Unauthorized — Спроба підробки payload токена виявлена.",
+                        postmanTip: "Тестуйте стійкість серверу до компрометації підпису (Tamper testing)."
+                    }
+                });
+                return;
+            }
+
+            if (state.redisBlacklist.has(state.jti)) {
+                actionCheckRevokedProfile();
+                return;
+            }
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 200,
+                statusText: 'OK',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { id: "usr_qa_981", name: "Олексій QA", role: state.role, email: "alex@qa.internal" },
+                qaExplanation: {
+                    whatHappened: "API Gateway розпарсив токен, перевірив HMAC підпис та expiration (exp), звірив з Redis Blacklist і допустив до ендпоінту.",
+                    whyStatus: "200 OK — Токен валідний, профіль успішно отримано.",
+                    postmanTip: "Перевіряйте відповідність даних у Payload JWT та фактичної відповіді API."
+                }
+            });
+        }
+
+        // 3. Admin Dashboard
+        function actionGetAdmin() {
+            if (!state.token || state.status !== 'VALID') {
+                actionGetProfile();
+                return;
+            }
+
+            if (state.role === 'ADMIN') {
+                logNetworkRequest({
+                    method: 'GET',
+                    url: '/api/v1/admin/dashboard',
+                    status: 200,
+                    statusText: 'OK',
+                    reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { admin_stats: "Active System Metrics", total_users: 1420 },
+                    qaExplanation: {
+                        whatHappened: "Токен містить claim 'role': 'ADMIN'. Сервер перевірив права доступу (RBAC) і надав доступ.",
+                        whyStatus: "200 OK — Доступ дозволено для ролі ADMIN.",
+                        postmanTip: "Автоматизуйте тести перевірки матриці прав для різних ролей."
+                    }
+                });
+            } else {
+                logNetworkRequest({
+                    method: 'GET',
+                    url: '/api/v1/admin/dashboard',
+                    status: 403,
+                    statusText: 'Forbidden',
+                    reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Forbidden", message: "User role 'USER' does not have permission for ADMIN scope" },
+                    qaExplanation: {
+                        whatHappened: "Токен валідний, але роль у claim ('USER') недостатня для доступу до адміністративного ендпоінту.",
+                        whyStatus: "403 Forbidden — Автентифікація пройдена, але в авторизації відмовлено (RBAC Restriction).",
+                        postmanTip: "Завжди розрізняйте 401 (Хто ти?) та 403 (Що тобі дозволено?)."
+                    }
+                });
+            }
+        }
+
+        // 4. Fast Forward
+        function actionFastForward() {
+            if (!state.token || state.status === 'MISSING') {
+                updateQAMentorCard({
+                    whatHappened: "Немає активного access token, тому симулювати його expiration неможливо.",
+                    whyStatus: "Стан залишено без змін.",
+                    postmanTip: "Спочатку виконайте Login і повторіть цей крок."
+                });
+                return;
+            }
+
+            const role = state.role;
+            const oldRefresh = state.refreshToken;
+            createToken(role, -5);
+            state.refreshToken = oldRefresh;
+            state.status = 'EXPIRED';
+            updateInspectorUI();
+            updateQAMentorCard({
+                whatHappened: "Симульовано сплив часу: у JWT встановлено `exp` у минулому, тому токен вважається протермінованим.",
+                whyStatus: "Токен став недійсним через expiration claim `exp`.",
+                postmanTip: "Наступний захищений запит з цим access token має повертати 401 Token Expired."
+            });
+        }
+
+        // 5. Expired Request
+        function actionExpiredRequest() {
+            if (state.status !== 'EXPIRED') {
+                const oldRefresh = state.refreshToken;
+                createToken(state.role, -5);
+                state.refreshToken = oldRefresh;
+                state.status = 'EXPIRED';
+                updateInspectorUI();
+            }
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Token Expired", message: "jwt expired at timestamp " + state.exp },
+                qaExplanation: {
+                    whatHappened: "Сервер порівняв поточний час epoch `now()` із значенням `exp` у токені і виявив, що термін життя вичерпано.",
+                    whyStatus: "401 Unauthorized — Протермінований токен не приймається.",
+                    postmanTip: "Клієнт повинен перехопити 401 і зробити автоматичний запит на /auth/refresh."
+                }
+            });
+        }
+
+        // 6. Refresh Token
+        function actionRefreshToken() {
+            if (!state.refreshToken) {
+                logNetworkRequest({
+                    method: 'POST',
+                    url: '/api/v1/auth/refresh',
+                    status: 401,
+                    statusText: 'Unauthorized',
+                    reqHeaders: { 'Content-Type': 'application/json' },
+                    reqBody: { refresh_token: null },
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Invalid Refresh Token", message: "Refresh token is missing or no longer valid" },
+                    qaExplanation: {
+                        whatHappened: "Клієнт не має дійсного refresh token для отримання нового access token.",
+                        whyStatus: "401 Unauthorized — refresh token відсутній або недійсний.",
+                        postmanTip: "Перевірте refresh після logout та з простроченим/відкликаним refresh token."
+                    },
+                    targetNode: 'authServer'
+                });
+                return;
+            }
+
+            createToken(state.role, 15);
+            logNetworkRequest({
+                method: 'POST',
+                url: '/api/v1/auth/refresh',
+                status: 200,
+                statusText: 'OK',
+                reqHeaders: { 'Content-Type': 'application/json' },
+                reqBody: { refresh_token: state.refreshToken },
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: {
+                    access_token: state.token,
+                    refresh_token: state.refreshToken,
+                    expires_in: 15
+                },
+                qaExplanation: {
+                    whatHappened: "Клієнт надіслав довготривалий refresh_token. Auth Server згенерував свіжу пару токенів з новими 15 секундами TTL.",
+                    whyStatus: "200 OK — Новий access_token видано без повторного вводу пароля.",
+                    postmanTip: "Тестуйте спробу повторного використання (reuse) згорілого refresh токена."
+                },
+                targetNode: 'authServer'
+            });
+        }
+
+        // 7. Tamper Attack
+        function actionTamperToken() {
+            if (!state.token || state.status !== 'VALID') createToken(state.role, 15);
+            const parts = state.token.split('.');
+            const payload = JSON.parse(base64UrlDecodeUtf8(parts[1]));
+            payload.role = payload.role === 'ADMIN' ? 'USER' : 'ADMIN';
+
+            const tamperedPayloadB64 = base64UrlEncodeUtf8(JSON.stringify(payload));
+            state.token = `${parts[0]}.${tamperedPayloadB64}.${parts[2]}`;
+            state.status = 'TAMPERED';
+            updateInspectorUI();
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Invalid Signature", message: "JWT signature does not match token payload" },
+                qaExplanation: {
+                    whatHappened: "Payload JWT було змінено: claim `role` підмінено, але старий signature залишено без перепідписання.",
+                    whyStatus: "401 Unauthorized — сервер перевірив підпис і виявив Signature Mismatch.",
+                    postmanTip: "У decoded JWT змініть `role: USER` на `ADMIN`, не змінюючи signature, і відправте запит до захищеного endpoint. Очікуваний результат — 401 Invalid Signature."
+                }
+            });
+        }
+
+        // 8. alg:none attack
+        function actionAlgNone() {
+            if (!state.token || state.status !== 'VALID') createToken(state.role, 15);
+            const parts = state.token.split('.');
+            const header = { alg: "none", typ: "JWT" };
+            const headerB64 = base64UrlEncodeUtf8(JSON.stringify(header));
+            state.token = `${headerB64}.${parts[1]}.${parts[2]}`;
+            state.status = 'ALG_NONE';
+            updateInspectorUI();
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 400,
+                statusText: 'Bad Request',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Unsupported Algorithm", message: "JWT alg 'none' is not allowed" },
+                qaExplanation: {
+                    whatHappened: "У JWT Header встановлено `alg: none`. Це спроба змусити сервер прийняти токен без перевірки криптографічного підпису.",
+                    whyStatus: "400 Bad Request — сервер не дозволяє небезпечний алгоритм `none`.",
+                    postmanTip: "Перевірте, що `alg: none` не обходить автентифікацію і сервер повертає контрольовану 400-помилку."
+                }
+            });
+        }
+
+        // 9. Missing Token Request
+        function actionMissingToken() {
+            const previousToken = state.token;
+            const previousStatus = state.status;
+            state.status = 'MISSING';
+            state.token = null;
+            updateInspectorUI();
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Accept': 'application/json' },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Unauthorized", message: "Missing Authorization Header" },
+                qaExplanation: {
+                    whatHappened: "Клієнт відправив запит до захищеного ресурсу без `Authorization` header.",
+                    whyStatus: "401 Unauthorized — сервер не отримав access token, тому не може автентифікувати клієнта.",
+                    postmanTip: "Видаліть `Authorization` header у Postman і перевірте 401 та відсутність витоку внутрішніх деталей."
+                }
+            });
+
+            state.token = previousToken;
+            state.status = previousStatus;
+            updateInspectorUI();
+        }
+
+        // 10. Revoke Token in Redis
+        function actionRevokeToken() {
+            if (!state.token || state.status !== 'VALID') createToken(state.role, 15);
+
+            const revokedJti = state.jti;
+            state.redisBlacklist.add(revokedJti);
+            state.status = 'REVOKED';
+
+            logNetworkRequest({
+                method: 'POST',
+                url: '/api/v1/auth/revoke',
+                status: 200,
+                statusText: 'OK',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: { token_id: revokedJti },
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { status: "success", message: `Token ${revokedJti} added to Redis Blacklist` },
+                qaExplanation: {
+                    whatHappened: "Унікальний `jti` токена внесено до Redis Blacklist.",
+                    whyStatus: "200 OK — сервер успішно прийняв операцію відкликання.",
+                    postmanTip: "Одразу після revoke повторіть захищений запит з тим самим токеном: він має отримати 401 Token Revoked."
+                },
+                targetNode: 'redis'
+            });
+
+            actionCheckRevokedProfile();
+        }
+
+        function actionCheckRevokedProfile() {
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Authorization': `Bearer ${state.token}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Token Revoked", message: "This JWT token has been invalidated by user logout or revoke action" },
+                qaExplanation: {
+                    whatHappened: "API Gateway перевірив `jti` токена у швидкій БД Redis і виявив запис у Blacklist.",
+                    whyStatus: "401 Unauthorized — Відкликаний токен блокується, навіть якщо його термін exp ще не минув.",
+                    postmanTip: "Це ключовий тест безпеки для перевірки миттєвого закриття сесій."
+                },
+                targetNode: 'redis'
+            });
+        }
+
+        // 11. Logout
+        function actionLogout() {
+            if (!state.token && !state.refreshToken) {
+                logNetworkRequest({
+                    method: 'POST',
+                    url: '/api/v1/auth/logout',
+                    status: 401,
+                    statusText: 'Unauthorized',
+                    reqHeaders: {},
+                    reqBody: null,
+                    resHeaders: { 'Content-Type': 'application/json' },
+                    resBody: { error: "Unauthorized", message: "No active session" },
+                    qaExplanation: {
+                        whatHappened: "Клієнт намагався виконати logout без активної сесії.",
+                        whyStatus: "401 Unauthorized — сервер не має сесії, яку можна завершити.",
+                        postmanTip: "Повторний logout без активної сесії має оброблятися передбачувано; перевірте контракт API."
+                    }
+                });
+                return;
+            }
+
+            const oldJti = state.jti;
+            if (oldJti) state.redisBlacklist.add(oldJti);
+
+            logNetworkRequest({
+                method: 'POST',
+                url: '/api/v1/auth/logout',
+                status: 200,
+                statusText: 'OK',
+                reqHeaders: state.token ? { 'Authorization': `Bearer ${state.token}` } : {},
+                reqBody: state.refreshToken ? { refresh_token: state.refreshToken } : null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { status: "logged_out", message: "Session closed and refresh token destroyed" },
+                qaExplanation: {
+                    whatHappened: "Сесія завершена: refresh token знищено, а активний access token відкликано.",
+                    whyStatus: "200 OK — вихід успішний.",
+                    postmanTip: "Після logout перевірте, що старий access token більше не працює, а refresh token не можна використати повторно."
+                },
+                targetNode: 'authServer'
+            });
+
+            state.token = null;
+            state.refreshToken = null;
+            state.status = 'MISSING';
+            updateInspectorUI();
+        }
+
+        // 12. Malformed Token
+        function actionMalformedToken() {
+            const junkToken = "malformed_token_xyz_invalid_base64_string";
+            state.token = junkToken;
+            state.status = 'MALFORMED';
+            updateInspectorUI();
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/user/profile',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Authorization': `Bearer ${junkToken}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Malformed Token", message: "JWT string does not contain valid 3 base64url-encoded segments" },
+                qaExplanation: {
+                    whatHappened: "Клієнт передав «сміттєвий» некоректний рядок у заголовок Authorization замість структурованого JWT.",
+                    whyStatus: "401 Unauthorized — Сервер не зміг розпарсити токен та відхилив запит до етапу перевірки підпису.",
+                    postmanTip: "Перевіряйте, що бекенд повертає зрозумілу 401 помилку, а не падає з 500 Internal Server Error та витоком stack trace."
+                }
+            });
+        }
+
+        // 13. Refresh Token Reuse Attack
+        function actionReuseRefreshToken() {
+            logNetworkRequest({
+                method: 'POST',
+                url: '/api/v1/auth/refresh',
+                status: 401,
+                statusText: 'Unauthorized',
+                reqHeaders: { 'Content-Type': 'application/json' },
+                reqBody: { refresh_token: "rt_already_consumed_99182" },
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Security Alert: Token Reused", message: "Refresh token has already been consumed. All associated active sessions invalidated." },
+                qaExplanation: {
+                    whatHappened: "Виявлено спробу повторного використання (Reuse Attack) вже використаного Refresh Token (Refresh Token Rotation).",
+                    whyStatus: "401 Unauthorized — Автоматичний захист: сервер анулює всю сесійну цепочку для запобігання крадіжці токенів.",
+                    postmanTip: "Перевірте, що повторна відправка використаного refresh_token відхиляється та анулює поточний активний access_token."
+                },
+                targetNode: 'authServer'
+            });
+
+            state.token = null;
+            state.refreshToken = null;
+            state.status = 'MISSING';
+            updateInspectorUI();
+        }
+
+        // 14. Audience / Issuer Mismatch
+        function actionAudienceMismatch() {
+            if (!state.token || state.status !== 'VALID') createToken(state.role, 15);
+            const parts = state.token.split('.');
+            const payload = JSON.parse(base64UrlDecodeUtf8(parts[1]));
+            payload.aud = "mobile_native_app";
+            payload.iss = "https://external-auth.vendor.com";
+
+            const modifiedPayloadB64 = base64UrlEncodeUtf8(JSON.stringify(payload));
+            const mismatchedToken = `${parts[0]}.${modifiedPayloadB64}.${parts[2]}`;
+
+            logNetworkRequest({
+                method: 'GET',
+                url: '/api/v1/admin/dashboard',
+                status: 403,
+                statusText: 'Forbidden',
+                reqHeaders: { 'Authorization': `Bearer ${mismatchedToken}` },
+                reqBody: null,
+                resHeaders: { 'Content-Type': 'application/json' },
+                resBody: { error: "Audience Mismatch", message: "Token claim 'aud' ('mobile_native_app') does not match expected target resource ('web_portal_app')" },
+                qaExplanation: {
+                    whatHappened: "Токен є підписаним і не простроченим, але випущений для іншої аудиторії (aud) чи сервісу (iss).",
+                    whyStatus: "403 Forbidden — Сервер відхиляє токен, оскільки контекст використання не відповідає даному ендпоінту.",
+                    postmanTip: "Тестуйте ситуації, коли токен від мобільного додатка або зовнішнього провайдера намагаються використати на Admin API."
+                }
+            });
+        }
+
+        function updateQAMentorCard(qaExp) {
+            const card = document.getElementById('qa-mentor-card');
+            if (!qaExp) return;
+            card.innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-slate-200"><strong>Під капотом:</strong> ${qaExp.whatHappened}</p>
+                    <p class="text-amber-300"><strong>Чому так:</strong> ${qaExp.whyStatus}</p>
+                    <p class="text-emerald-400 font-mono-code text-[11px]"><strong>QA Порада:</strong> ${qaExp.postmanTip}</p>
+                </div>
+            `;
+        }
+
+        function clearNetworkLogs() {
+            state.logs = [];
+            state.activeLogId = null;
+            renderNetworkLogs();
+            closeInspector();
+        }
+
+        function resetSimulator() {
+            state.redisBlacklist.clear();
+            state.role = 'USER';
+            setRole('USER');
+            clearNetworkLogs();
+            actionLogin();
+        }
+
+        function copyRawToken() {
+            if (!state.token) return;
+            navigator.clipboard.writeText(state.token);
+            alert("Токен скопійовано в буфер обміну!");
+        }
+
+        function initCanvas() {
+            const canvas = document.getElementById('network-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            function resize() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+                drawTopology();
+            }
+            window.addEventListener('resize', resize);
+            resize();
+        }
+
+        function drawTopology() {
+            const canvas = document.getElementById('network-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const scaleX = w / 600;
+            const scaleY = h / 180;
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+
+            ctx.beginPath();
+            ctx.moveTo(canvasNodes.client.x * scaleX, canvasNodes.client.y * scaleY);
+            ctx.lineTo(canvasNodes.gateway.x * scaleX, canvasNodes.gateway.y * scaleY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(canvasNodes.gateway.x * scaleX, canvasNodes.gateway.y * scaleY);
+            ctx.lineTo(canvasNodes.authServer.x * scaleX, canvasNodes.authServer.y * scaleY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(canvasNodes.gateway.x * scaleX, canvasNodes.gateway.y * scaleY);
+            ctx.lineTo(canvasNodes.redis.x * scaleX, canvasNodes.redis.y * scaleY);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+
+            Object.values(canvasNodes).forEach(node => {
+                const nx = node.x * scaleX;
+                const ny = node.y * scaleY;
+
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = node.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(nx, ny, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '10px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.label, nx, ny + 28);
+            });
+
+            if (activeAnimationPacket) {
+                ctx.fillStyle = activeAnimationPacket.color;
+                ctx.beginPath();
+                ctx.arc(activeAnimationPacket.x, activeAnimationPacket.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowColor = activeAnimationPacket.color;
+                ctx.shadowBlur = 10;
+            }
+        }
+
+        function animatePacket(targetNodeKey, color) {
+            const canvas = document.getElementById('network-canvas');
+            if (!canvas) return;
+            const w = canvas.width;
+            const h = canvas.height;
+            const scaleX = w / 600;
+            const scaleY = h / 180;
+
+            const startX = canvasNodes.client.x * scaleX;
+            const startY = canvasNodes.client.y * scaleY;
+            
+            const midX = canvasNodes.gateway.x * scaleX;
+            const midY = canvasNodes.gateway.y * scaleY;
+
+            const endNode = canvasNodes[targetNodeKey] || canvasNodes.gateway;
+            const endX = endNode.x * scaleX;
+            const endY = endNode.y * scaleY;
+
+            let progress = 0;
+            
+            function step() {
+                progress += 0.05;
+                if (progress <= 0.5) {
+                    const t = progress * 2;
+                    activeAnimationPacket = {
+                        x: startX + (midX - startX) * t,
+                        y: startY + (midY - startY) * t,
+                        color
+                    };
+                } else if (progress <= 1) {
+                    const t = (progress - 0.5) * 2;
+                    activeAnimationPacket = {
+                        x: midX + (endX - midX) * t,
+                        y: midY + (endY - midY) * t,
+                        color
+                    };
+                } else {
+                    activeAnimationPacket = null;
+                    drawTopology();
+                    return;
+                }
+
+                drawTopology();
+                requestAnimationFrame(step);
+            }
+
+            requestAnimationFrame(step);
+        }
+
+        function openQuizModal() {
+            const modal = document.getElementById('quiz-modal');
+            const body = document.getElementById('quiz-body');
+            modal.classList.remove('hidden');
+
+            body.innerHTML = `
+                <div class="space-y-4">
+                    <div>
+                        <p class="font-semibold text-slate-200 mb-2">1. Що станеться, якщо змінити Payload у JWT без перепідписання?</p>
+                        <div class="space-y-1">
+                            <button onclick="answerQuiz(this, false, 'Зміна payload без нового підпису не робить токен валідним.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">A) Сервер автоматично оновлює підпис</button>
+                            <button onclick="answerQuiz(this, true, 'Підпис більше не відповідає header + payload, тому перевірка підпису має завершитися помилкою.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">B) Сервер поверне 401 через Signature Verification Failed</button>
+                            <button onclick="answerQuiz(this, false, 'Сервер не повинен довіряти зміненому payload без валідного підпису.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">C) Запит виконається з новими даними</button>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-200 mb-2">2. У чому різниця між 401 та 403?</p>
+                        <div class="space-y-1">
+                            <button onclick="answerQuiz(this, true, '401 стосується відсутньої/невірної автентифікації; 403 означає, що клієнт автентифікований, але не має потрібних прав.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">A) 401 — проблема автентифікації, 403 — недостатні права</button>
+                            <button onclick="answerQuiz(this, false, '403 не є просто іншим написанням 401.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">B) Це одна й та сама помилка</button>
+                            <button onclick="answerQuiz(this, false, '403 використовується для відмови в доступі після перевірки прав.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">C) 403 означає, що токена немає</button>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-200 mb-2">3. Що має відбутися після expiration access token?</p>
+                        <div class="space-y-1">
+                            <button onclick="answerQuiz(this, false, 'Expired access token не має залишатися прийнятним для захищеного API.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">A) API продовжить приймати його без перевірки</button>
+                            <button onclick="answerQuiz(this, true, 'Захищений API має відхилити expired access token; типовий результат у цьому симуляторі — 401 Token Expired.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">B) Захищений запит поверне 401, після чого клієнт може використати refresh flow</button>
+                            <button onclick="answerQuiz(this, false, 'Expiration access token не означає автоматичне підвищення ролі.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">C) Роль автоматично зміниться</button>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-200 mb-2">4. Для чого потрібен Blacklist / revoke?</p>
+                        <div class="space-y-1">
+                            <button onclick="answerQuiz(this, true, 'Blacklist дозволяє серверу достроково зробити конкретний токен недійсним до завершення його exp.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">A) Щоб достроково заблокувати ще не expired token</button>
+                            <button onclick="answerQuiz(this, false, 'Blacklist не подовжує TTL токена.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">B) Щоб продовжити TTL access token</button>
+                            <button onclick="answerQuiz(this, false, 'Blacklist не призначений для видачі нових ролей.')" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800">C) Щоб видати користувачу ADMIN роль</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function answerQuiz(btn, isCorrect, explanation) {
+            const parent = btn.parentElement;
+            if (parent.querySelector('.quiz-explanation')) return;
+
+            btn.className = isCorrect
+                ? "w-full text-left p-2 rounded bg-emerald-500/20 border border-emerald-500 text-emerald-300 font-bold"
+                : "w-full text-left p-2 rounded bg-rose-500/20 border border-rose-500 text-rose-300 font-bold";
+
+            btn.innerText += isCorrect ? "  ✓ Правильно!" : "  ✗ Невірно";
+
+            const info = document.createElement('div');
+            info.className = 'quiz-explanation mt-1 p-2 rounded bg-slate-900 border border-slate-800 text-slate-300';
+            info.innerText = explanation;
+            parent.appendChild(info);
+        }
+
+        function closeQuizModal() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
